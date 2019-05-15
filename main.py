@@ -7,12 +7,16 @@ HALT = -1
 
 
 class Dbg:
+    log = []
+
     @staticmethod
     def dprint(str):
+        Dbg.log.append(str)
         print(str) #might be redeloaded
 
     @staticmethod
     def fatalError(str):
+        Dbg.log.append("!!! " + str)
         print("!!! " + str)  # надо сделать красивое окошечко с варнингом
 
 
@@ -22,6 +26,9 @@ class TuringMachine:
     tapePtr = 0  # текущая позиция головки
     condition = 0  # текущее состояние
     isRunning = True
+
+    def getLog(self):
+        return Dbg.log
 
     def setTape(self, tape):
         TuringMachine.tape = tape
@@ -37,6 +44,14 @@ class TuringMachine:
         print(out + "\n")
 
     def exec(self):
+        # очищаем лог
+        Dbg.log = []
+
+        # проверка на случай если у нас 0 состояний или лента пуста
+        if not TuringMachine.conditionsList or not TuringMachine.tape:
+            Dbg.fatalError("Нет состояний или лента пуста!")
+            return -1
+
         print("Входные данные:")
         TuringMachine.printTape()
 
@@ -45,35 +60,44 @@ class TuringMachine:
             # Если нет - выкидываем исключение, т.к. неверно задано условие
 
             # Сравниваем поочередно символы в состоянии с символом в текущей ячейке
-            for conditionContainer in TuringMachine.conditionsList[TuringMachine.condition].conditionsTable:
-                if conditionContainer.symbol == TuringMachine.tape[TuringMachine.tapePtr]:
-                    symbolExists = True
-                    #print("simvol sovpal")
-                    # Нашли. Заменяем символ на указанную подстановку
-                    TuringMachine.tape[TuringMachine.tapePtr] = conditionContainer.setSymbol
+            try:
+                for conditionContainer in TuringMachine.conditionsList[TuringMachine.condition].conditionsTable:
+                    if conditionContainer.symbol == TuringMachine.tape[TuringMachine.tapePtr]:
+                        symbolExists = True
 
-                    if conditionContainer.goToCondition == HALT:
-                        Dbg.dprint("Встречена конечная команда. Остановка машины.")
-                        TuringMachine.isRunning = False
-                        break
-
-                    # Меняем положение головки на +1 (вправо) или на -1 (влево)
-                    TuringMachine.tapePtr += conditionContainer.direction
-                    Dbg.dprint("Позиция головки: " + str(TuringMachine.tapePtr) + " текущий символ: " + conditionContainer.symbol)
-
-                    if conditionContainer.goToCondition != THIS:
-                        if conditionContainer.goToCondition < len(TuringMachine.conditionsList) or conditionContainer.goToCondition < 0:
-                            # Если всё необходимо сменить состояние, и указанное - валидно, то переходим на указанное
-                            TuringMachine.condition = conditionContainer.goToCondition
+                        # Нашли. Заменяем символ на указанную подстановку
+                        if TuringMachine.tape[TuringMachine.tapePtr] != conditionContainer.setSymbol:
+                            Dbg.dprint("Заменили " + TuringMachine.tape[TuringMachine.tapePtr] + " на " + conditionContainer.setSymbol)
                         else:
-                            Dbg.fatalError("Несуществующее состояние, всё плохо")
+                            Dbg.dprint("Оставили символ без изменения")
+
+                        TuringMachine.tape[TuringMachine.tapePtr] = conditionContainer.setSymbol
+
+                        if conditionContainer.goToCondition == HALT:
+                            Dbg.dprint("Встречена конечная команда. Остановка машины.")
                             TuringMachine.isRunning = False
-                    Dbg.dprint("Текущее состояние = q" + str(TuringMachine.condition)+ "\n")
+                            break
 
-            if not symbolExists:  # если флаг не поднял ни один из символов
-                Dbg.fatalError("Найден символ, для которого нет обработчика")
+                        # Меняем положение головки на +1 (вправо) или на -1 (влево)
+                        TuringMachine.tapePtr += conditionContainer.direction
+                        Dbg.dprint("Позиция головки: " + str(TuringMachine.tapePtr) + ". Текущий символ: " + conditionContainer.symbol)
+
+                        if conditionContainer.goToCondition != THIS:
+                            if conditionContainer.goToCondition < len(TuringMachine.conditionsList) or conditionContainer.goToCondition < 0:
+                                # Если всё необходимо сменить состояние, и указанное - валидно, то переходим на указанное
+                                TuringMachine.condition = conditionContainer.goToCondition
+                            else:
+                                Dbg.fatalError("Несуществующее состояние")
+                                TuringMachine.isRunning = False
+                        Dbg.dprint("Текущее состояние = q" + str(TuringMachine.condition)+ "\n")
+
+                if not symbolExists:  # если флаг не поднял ни один из символов
+                    Dbg.fatalError("Найден символ, для которого нет обработчика")
+                    TuringMachine.isRunning = False
+
+            except IndexError:
+                Dbg.fatalError("Выход за пределы ленты")
                 TuringMachine.isRunning = False
-
 
         TuringMachine.isRunning = False
 
